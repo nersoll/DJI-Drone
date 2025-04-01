@@ -59,6 +59,28 @@ public class MainActivity extends AppCompatActivity {
         setupActionBar();
         contentFrameLayout = (FrameLayout) findViewById(R.id.framelayout_content);
         initParams();
+
+
+        enableImmersiveMode();
+    }
+
+    private void enableImmersiveMode() {
+        final View decorView = getWindow().getDecorView();
+        decorView.setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                        | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                        | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                        | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION       // скрыть нижнюю панель
+                        | View.SYSTEM_UI_FLAG_FULLSCREEN            // скрыть статус-бар
+                        | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);   // включить immersive режим
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) {
+            enableImmersiveMode();
+        }
     }
 
     @Override
@@ -167,6 +189,7 @@ public class MainActivity extends AppCompatActivity {
         stack.push(new ViewWrapper(view, R.string.activity_component_list));
     }
 
+
     private void pushView(ViewWrapper wrapper) {
         if (stack.size() <= 0) {
             return;
@@ -197,17 +220,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void refreshTitle() {
-        if (stack.size() > 1) {
-            ViewWrapper wrapper = stack.peek();
-            titleTextView.setText(wrapper.getTitleId());
-        } else if (stack.size() == 1) {
-            BaseProduct product = DJISampleApplication.getProductInstance();
-            if (product != null && product.getModel() != null) {
-                titleTextView.setText("" + product.getModel().getDisplayName());
-            } else {
-                titleTextView.setText(R.string.sample_app_name);
-            }
-        }
+
     }
 
     private void popView() {
@@ -233,17 +246,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void refreshOptionsMenu() {
-        if (stack.size() == 2 && stack.peek().getView() instanceof DemoListView) {
-            searchViewItem.setVisible(true);
-        } else {
-            searchViewItem.setVisible(false);
-            searchViewItem.collapseActionView();
-        }
-        if (stack.size() == 3 && stack.peek().getView() instanceof PresentableView) {
-            hintItem.setVisible(true);
-        } else {
-            hintItem.setVisible(false);
-        }
+
     }
 
 

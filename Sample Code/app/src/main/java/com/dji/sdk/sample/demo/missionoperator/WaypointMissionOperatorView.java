@@ -1,5 +1,6 @@
 package com.dji.sdk.sample.demo.missionoperator;
 
+
 import android.content.Context;
 import android.util.Log;
 import android.view.View;
@@ -17,7 +18,7 @@ import androidx.annotation.Nullable;
 import dji.common.error.DJIError;
 import dji.common.flightcontroller.FlightControllerState;
 import dji.common.flightcontroller.simulator.InitializationData;
-import dji.common.gimbal.CapabilityKey;
+
 import dji.common.mission.waypoint.Waypoint;
 import dji.common.mission.waypoint.WaypointAction;
 import dji.common.mission.waypoint.WaypointActionType;
@@ -33,12 +34,10 @@ import dji.common.mission.waypoint.WaypointMissionUploadEvent;
 import dji.common.mission.waypoint.WaypointTurnMode;
 import dji.common.model.LocationCoordinate2D;
 import dji.common.util.CommonCallbacks;
-import dji.common.util.DJIParamMinMaxCapability;
-import dji.keysdk.FlightControllerKey;
-import dji.keysdk.KeyManager;
+
 import dji.sdk.base.BaseProduct;
 import dji.sdk.flightcontroller.FlightController;
-import dji.sdk.gimbal.Gimbal;
+
 import dji.sdk.mission.MissionControl;
 import dji.sdk.mission.waypoint.WaypointMissionOperator;
 import dji.sdk.mission.waypoint.WaypointMissionOperatorListener;
@@ -74,6 +73,9 @@ public class WaypointMissionOperatorView extends MissionBaseView {
     @Override
     public void onClick(View view) {
         waypointMissionOperator = getWaypointMissionOperator();
+
+
+
         switch(view.getId()) {
             case R.id.btn_simulator:
                 startSimulator();
@@ -99,37 +101,44 @@ public class WaypointMissionOperatorView extends MissionBaseView {
                 }
                 break;
             case R.id.btn_load:
-                mission = createRectangleWaypointMission();
-                DJIError djiError = waypointMissionOperator.loadMission(mission);
-                if (djiError == null) {
-                    ToastUtils.setResultToToast("Mission is loaded successfully, estimated execution time is " + calculateTotalTime + " seconds.");
-                } else {
-                    ToastUtils.setResultToToast(djiError.getDescription());
+                List<LocationCoordinate2D> coords = new ArrayList<>();
+                coords.add(new LocationCoordinate2D(22.0, 113.0));
+                coords.add(new LocationCoordinate2D(22.0003, 113.0003));
+                coords.add(new LocationCoordinate2D(22.0006, 113.0001));
+                coords.add(new LocationCoordinate2D(22.0004, 113.0000));
+
+                mission = createWaypointMissionFromCoordinates(coords);
+                if (mission != null) {
+                    DJIError djiError = waypointMissionOperator.loadMission(mission);
+                    if (djiError == null) {
+                        ToastUtils.setResultToToast("Mission is loaded successfully, estimated execution time is " + calculateTotalTime + " seconds.");
+                    } else {
+                        ToastUtils.setResultToToast(djiError.getDescription());
+                    }
                 }
-                break;
-            case R.id.btn_upload:
                 if (WaypointMissionState.READY_TO_RETRY_UPLOAD.equals(waypointMissionOperator.getCurrentState()) || WaypointMissionState.READY_TO_UPLOAD.equals(waypointMissionOperator.getCurrentState())) {
-                    waypointMissionOperator.uploadMission(new CommonCallbacks.CompletionCallback() {
-                        @Override
-                        public void onResult(DJIError djiError) {
-                            ToastUtils.setResultToToast(djiError != null ? djiError.getDescription() : "upload success");
-                        }
-                    });
+                waypointMissionOperator.uploadMission(new CommonCallbacks.CompletionCallback() {
+                    @Override
+                    public void onResult(DJIError djiError) {
+                        ToastUtils.setResultToToast(djiError != null ? djiError.getDescription() : "upload success");
+                    }
+                });
+
                 } else {
-                    ToastUtils.setResultToToast("Wait for mission to be loaded");
+                ToastUtils.setResultToToast("Wait for mission to be loaded");
+
                 }
-                break;
-            case R.id.btn_start:
                 if (null != mission) {
-                    waypointMissionOperator.startMission(new CommonCallbacks.CompletionCallback() {
-                        @Override
-                        public void onResult(DJIError djiError) {
-                            ToastUtils.setResultToToast(djiError != null ? djiError.getDescription(): "start success");
-                        }
-                    });
+                    startWaypointMissionWithTakeoffIfNeeded();
                 } else {
                     ToastUtils.setResultToToast("Wait for mission to be uploaded");
                 }
+                break;
+            case R.id.btn_upload:
+
+                break;
+            case R.id.btn_start:
+
                 break;
             case R.id.btn_stop:
                 waypointMissionOperator.stopMission(new CommonCallbacks.CompletionCallback() {
@@ -175,6 +184,7 @@ public class WaypointMissionOperatorView extends MissionBaseView {
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
+
         BaseProduct product = DJISampleApplication.getProductInstance();
 
         if (product == null || !product.isConnected()) {
@@ -220,70 +230,80 @@ public class WaypointMissionOperatorView extends MissionBaseView {
         super.onDetachedFromWindow();
     }
 
-    /**
-     * Pre-define a square, co-ordination (0,0),(0,30),(30,30),(30,0). So the drone heading needs to turn 45 degrees every turn.
-     */
-    private WaypointMission createRectangleWaypointMission() {
+
+    private WaypointMission createWaypointMissionFromCoordinates(List<LocationCoordinate2D> coordinates) {
+        if (coordinates == null || coordinates.size() < 2) {
+            ToastUtils.setResultToToast("Not enough coordinates to create a mission.");
+            return null;
+        }
+
         WaypointMission.Builder builder = new WaypointMission.Builder();
-        double baseLatitude = 22;
-        double baseLongitude = 113;
-        Object latitudeValue = KeyManager.getInstance().getValue((FlightControllerKey.create(HOME_LOCATION_LATITUDE)));
-        Object longitudeValue = KeyManager.getInstance().getValue((FlightControllerKey.create(HOME_LOCATION_LONGITUDE)));
 
-        if (latitudeValue != null && latitudeValue instanceof Double) {
-            baseLatitude = (double) latitudeValue;
+        // Настройка параметров миссии
+        builder.autoFlightSpeed(15.0f)
+                .maxFlightSpeed(15.0f)
+                .setExitMissionOnRCSignalLostEnabled(true)
+                .finishedAction(WaypointMissionFinishedAction.NO_ACTION)
+                .headingMode(WaypointMissionHeadingMode.AUTO)
+                .gotoFirstWaypointMode(WaypointMissionGotoWaypointMode.SAFELY)
+                .flightPathMode(WaypointMissionFlightPathMode.NORMAL)
+                .repeatTimes(1);
+
+        // Начальная высота
+        float altitude = 30f;
+
+        for (int i = 0; i < coordinates.size(); i++) {
+            LocationCoordinate2D coord = coordinates.get(i);
+            Waypoint waypoint = new Waypoint(coord.getLatitude(), coord.getLongitude(), altitude);
+            waypoint.turnMode = WaypointTurnMode.CLOCKWISE;
+
+            if (i == 0) {
+                // На первой точке опустить камеру
+                waypoint.addAction(new WaypointAction(WaypointActionType.GIMBAL_PITCH, -90));
+            }
+            builder.addWaypoint(waypoint);
         }
-        if (longitudeValue != null && longitudeValue instanceof Double) {
-            baseLongitude = (double) longitudeValue;
-        }
-
-        final float baseAltitude = 30.0f;
-        builder.autoFlightSpeed(5f);
-        builder.maxFlightSpeed(10f);
-        builder.setExitMissionOnRCSignalLostEnabled(false);
-        builder.finishedAction(WaypointMissionFinishedAction.GO_HOME);
-        builder.flightPathMode(WaypointMissionFlightPathMode.NORMAL);
-        builder.gotoFirstWaypointMode(WaypointMissionGotoWaypointMode.SAFELY);
-        builder.setPointOfInterest(new LocationCoordinate2D(15, 15));
-        builder.headingMode(WaypointMissionHeadingMode.TOWARD_POINT_OF_INTEREST);
-        builder.setGimbalPitchRotationEnabled(true);
-        builder.repeatTimes(1);
-
-        // Waypoint 0: (0,0)
-        Waypoint waypoint0 = new Waypoint(baseLatitude, baseLongitude, baseAltitude);
-        waypoint0.turnMode = WaypointTurnMode.CLOCKWISE;
-        waypoint0.addAction(new WaypointAction(WaypointActionType.ROTATE_AIRCRAFT,0 + calculateTurnAngle()));
-        waypoint0.addAction(new WaypointAction(WaypointActionType.START_TAKE_PHOTO, 0));
-        waypoint0.addAction(new WaypointAction(WaypointActionType.GIMBAL_PITCH, 0));
-        builder.addWaypoint(waypoint0);
-
-        // Waypoint 1: (0,30)
-        Waypoint waypoint1 = new Waypoint(baseLatitude, baseLongitude + HORIZONTAL_DISTANCE * ONE_METER_OFFSET, baseAltitude);
-        waypoint1.turnMode = WaypointTurnMode.COUNTER_CLOCKWISE;
-        waypoint1.addAction(new WaypointAction(WaypointActionType.ROTATE_AIRCRAFT, 0 - calculateTurnAngle()));
-        waypoint1.addAction(new WaypointAction(WaypointActionType.START_TAKE_PHOTO, 0));
-        waypoint1.addAction(new WaypointAction(WaypointActionType.GIMBAL_PITCH, -45));
-        builder.addWaypoint(waypoint1);
-
-        // Waypoint 2: (30,30)
-        Waypoint waypoint2 = new Waypoint(baseLatitude + VERTICAL_DISTANCE * ONE_METER_OFFSET, baseLongitude + HORIZONTAL_DISTANCE * ONE_METER_OFFSET, baseAltitude);
-        waypoint2.turnMode = WaypointTurnMode.COUNTER_CLOCKWISE;
-        waypoint2.addAction(new WaypointAction(WaypointActionType.ROTATE_AIRCRAFT, -180 + calculateTurnAngle()));
-        waypoint2.addAction(new WaypointAction(WaypointActionType.START_TAKE_PHOTO, 0));
-        waypoint2.addAction(new WaypointAction(WaypointActionType.GIMBAL_PITCH, -90));
-        builder.addWaypoint(waypoint2);
-
-        // Waypoint 3: (30,0)
-        Waypoint waypoint3 = new Waypoint(baseLatitude + VERTICAL_DISTANCE * ONE_METER_OFFSET, baseLongitude, baseAltitude);
-        waypoint3.turnMode = WaypointTurnMode.COUNTER_CLOCKWISE;
-        waypoint3.addAction(new WaypointAction(WaypointActionType.ROTATE_AIRCRAFT, 180 - calculateTurnAngle()));
-        waypoint3.addAction(new WaypointAction(WaypointActionType.START_TAKE_PHOTO, 0));
-        waypoint3.addAction(new WaypointAction(WaypointActionType.GIMBAL_PITCH, 0));
-        builder.addWaypoint(waypoint3);
 
         calculateTotalTime = builder.calculateTotalTime();
         return builder.build();
     }
+
+    private void startWaypointMissionWithTakeoffIfNeeded() {
+        if (flightController == null) {
+            ToastUtils.setResultToToast("FlightController is not available");
+            return;
+        }
+
+        FlightControllerState state = flightController.getState();
+
+        if (!state.isFlying()) {
+            // Дрон на земле — взлетаем
+            flightController.startTakeoff(new CommonCallbacks.CompletionCallback() {
+                @Override
+                public void onResult(DJIError djiError) {
+                    if (djiError == null) {
+                        ToastUtils.setResultToToast("Takeoff successful. Starting mission...");
+                        startMission();
+                    } else {
+                        ToastUtils.setResultToToast("Takeoff failed: " + djiError.getDescription());
+                    }
+                }
+            });
+        } else {
+            // Уже в полёте — сразу запускаем
+            startMission();
+        }
+    }
+
+    private void startMission() {
+        waypointMissionOperator.startMission(new CommonCallbacks.CompletionCallback() {
+            @Override
+            public void onResult(DJIError djiError) {
+                ToastUtils.setResultToToast(djiError == null ? "Mission started" : djiError.getDescription());
+            }
+        });
+    }
+
 
 
     private void updateWaypointMissionState(){
@@ -320,6 +340,8 @@ public class WaypointMissionOperatorView extends MissionBaseView {
                     ToastUtils.setResultToToast("Mission is downloaded successfully");
                 }
                 updateWaypointMissionState();
+
+
             }
 
             @Override
@@ -358,6 +380,16 @@ public class WaypointMissionOperatorView extends MissionBaseView {
             public void onExecutionFinish(@Nullable DJIError djiError) {
                 ToastUtils.setResultToToast("Mission finished");
                 updateWaypointMissionState();
+
+                // После завершения миссии — посадка
+                if (flightController != null) {
+                    flightController.startLanding(new CommonCallbacks.CompletionCallback() {
+                        @Override
+                        public void onResult(DJIError error) {
+                            ToastUtils.setResultToToast(error == null ? "Landing initiated" : "Landing failed: " + error.getDescription());
+                        }
+                    });
+                }
             }
         };
 

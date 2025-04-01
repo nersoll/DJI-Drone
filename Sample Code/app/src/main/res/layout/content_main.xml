@@ -18,6 +18,7 @@
         android:progress="0" />
 
     <TextView
+        android:visibility="gone"
         android:id="@+id/text_connection_status"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -37,6 +38,7 @@
         android:gravity="center"
         android:text="@string/product_information"
         android:textColor="@android:color/black"
+        android:visibility="gone"
         android:textSize="20dp"
         android:textStyle="bold"/>
 
@@ -52,6 +54,7 @@
         android:gravity="center"
         android:text="@string/model_not_available"
         android:textColor="@color/gray"
+        android:visibility="gone"
         android:textSize="15dp"/>
     <!-- :nextFocusUp and :nextFocusLeft have been set to the id of this component
     to prevent the text_model_available from receiving focus again -->
@@ -70,6 +73,7 @@
         android:maxLines="1"
         android:digits="0123456789.\n"
         android:inputType="numberDecimal"
+        android:visibility="gone"
         android:imeOptions="actionDone"
         android:textColor="@color/black"
         android:textSize="15dp"/>
@@ -78,6 +82,7 @@
         android:id="@+id/btn_bluetooth"
         android:layout_width="150dp"
         android:layout_height="55dp"
+        android:visibility="gone"
         android:layout_below="@+id/edittext_bridge_ip"
         android:layout_centerHorizontal="true"
         android:layout_marginTop="15dp"
@@ -107,6 +112,7 @@
         android:layout_below="@+id/btn_registerApp"
         android:layout_centerHorizontal="true"
         android:layout_marginTop="15dp"
+        android:visibility="gone"
         android:background="@drawable/round_btn"
         android:text="Register APP for LDM"
         android:textAllCaps="false"
@@ -117,6 +123,7 @@
         android:id="@+id/btn_open"
         android:layout_width="150dp"
         android:layout_height="55dp"
+
         android:layout_below="@+id/btn_registerAppForLDM"
         android:layout_centerHorizontal="true"
         android:layout_marginTop="15dp"
@@ -133,6 +140,7 @@
         android:layout_below="@+id/btn_open"
         android:layout_centerHorizontal="true"
         android:layout_marginTop="15dp"
+        android:visibility="gone"
         android:text="@string/sdk_version"
         android:textColor="@color/gray"
         android:textSize="15dp"/>
@@ -143,6 +151,7 @@
         android:layout_marginTop="15dp"
         android:orientation="horizontal"
         android:gravity="center"
+        android:visibility="gone"
         android:layout_below="@+id/text_version">
 
         <CheckBox

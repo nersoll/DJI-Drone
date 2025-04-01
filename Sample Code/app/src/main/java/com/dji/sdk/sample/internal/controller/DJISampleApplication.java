@@ -2,6 +2,7 @@ package com.dji.sdk.sample.internal.controller;
 
 import android.app.Application;
 import android.content.Context;
+import android.util.Log;
 
 import com.squareup.otto.Bus;
 import com.squareup.otto.ThreadEnforcer;
@@ -34,7 +35,11 @@ public class DJISampleApplication extends Application {
         product = DJISDKManager.getInstance().getProduct();
         return product;
     }
-
+    public void onCreate() {
+        super.onCreate();
+        app = this;
+        Log.d(TAG, "DJISampleApplication started");
+    }
     public static synchronized BluetoothProductConnector getBluetoothProductConnector() {
         bluetoothConnector = DJISDKManager.getInstance().getBluetoothProductConnector();
         return bluetoothConnector;

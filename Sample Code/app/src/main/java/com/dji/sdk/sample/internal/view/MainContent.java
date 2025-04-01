@@ -27,6 +27,7 @@ import android.widget.TextView;
 
 import com.dji.sdk.sample.R;
 import com.dji.sdk.sample.demo.bluetooth.BluetoothView;
+import com.dji.sdk.sample.demo.missionoperator.WaypointMissionOperatorView;
 import com.dji.sdk.sample.internal.controller.DJISampleApplication;
 import com.dji.sdk.sample.internal.controller.MainActivity;
 import com.dji.sdk.sample.internal.model.ViewWrapper;
@@ -80,7 +81,7 @@ public class MainContent extends RelativeLayout {
             Manifest.permission.WRITE_EXTERNAL_STORAGE, // Log files
             Manifest.permission.BLUETOOTH, // Bluetooth connected products
             Manifest.permission.BLUETOOTH_ADMIN, // Bluetooth connected products
-            Manifest.permission.READ_EXTERNAL_STORAGE, // Log files
+            Manifest.permission.READ_EXTERNAL_STORAGE,
             Manifest.permission.READ_PHONE_STATE, // Device UUID accessed upon registration
             Manifest.permission.RECORD_AUDIO // Speaker accessory
     };
@@ -105,8 +106,9 @@ public class MainContent extends RelativeLayout {
     private Button getmBtnRegisterAppForLDM;
     private Button mBtnOpen;
     private Button mBtnBluetooth;
+//            new ViewWrapper(new DemoListView(getContext()), R.string.activity_component_list);
     private ViewWrapper componentList =
-            new ViewWrapper(new DemoListView(getContext()), R.string.activity_component_list);
+            new ViewWrapper(new WaypointMissionOperatorView(getContext()), R.string.activity_component_list);
     private ViewWrapper bluetoothView;
     private EditText mBridgeModeEditText;
     private CheckBox mCheckboxFirmware;
@@ -161,7 +163,9 @@ public class MainContent extends RelativeLayout {
             @Override
             public void onClick(View v) {
                 isregisterForLDM = false;
+                Log.d(TAG, "Register button clicked");
                 checkAndRequestPermissions();
+
             }
         });
         getmBtnRegisterAppForLDM.setOnClickListener(new OnClickListener() {
@@ -350,7 +354,11 @@ public class MainContent extends RelativeLayout {
         Log.d(TAG, "mProduct: " + (mProduct == null ? "null" : "unnull"));
         if (null != mProduct ) {
             if (mProduct.isConnected()) {
-                mBtnOpen.setEnabled(true);
+                    if (componentList != null) {
+                        // Автоматическое открытие следующего слоя
+                        DJISampleApplication.getEventBus().post(componentList);
+                    }
+//                mBtnOpen.setEnabled(true);
                 String str = mProduct instanceof Aircraft ? "DJIAircraft" : "DJIHandHeld";
                 mTextConnectionStatus.setText("Status: " + str + " connected");
                 tryUpdateFirmwareVersionWithListener();
@@ -463,23 +471,25 @@ public class MainContent extends RelativeLayout {
      * requests runtime permission if needed.
      */
     private void checkAndRequestPermissions() {
-        // Check for permissions
+        Activity activity = (Activity) getContext(); // гарантированно Activity
+
         List<String> missingPermission = new ArrayList<>();
-        for (String eachPermission : REQUIRED_PERMISSION_LIST) {
-            if (ContextCompat.checkSelfPermission(mContext, eachPermission) != PackageManager.PERMISSION_GRANTED) {
-                missingPermission.add(eachPermission);
+        for (String permission : REQUIRED_PERMISSION_LIST) {
+            if (ContextCompat.checkSelfPermission(activity, permission) != PackageManager.PERMISSION_GRANTED) {
+                missingPermission.add(permission);
+                Log.i(TAG, permission);
             }
         }
-        // Request for missing permissions
+
         if (missingPermission.isEmpty()) {
             startSDKRegistration();
+
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            ActivityCompat.requestPermissions((Activity) mContext,
-                    missingPermission.toArray(new String[missingPermission.size()]),
+            ActivityCompat.requestPermissions(activity,
+                    missingPermission.toArray(new String[0]),
                     REQUEST_PERMISSION_CODE);
         }
     }
-
     private void startSDKRegistration() {
         if (isRegistrationInProgress.compareAndSet(false, true)) {
             AsyncTask.execute(new Runnable() {
@@ -503,6 +513,7 @@ public class MainContent extends RelativeLayout {
                                     DJILog.e("App registration for LDM", DJISDKError.REGISTRATION_SUCCESS.getDescription());
                                     DJISDKManager.getInstance().startConnectionToProduct();
                                     ToastUtils.setResultToToast(mContext.getString(R.string.sdk_registration_success_message));
+
                                 } else {
                                     ToastUtils.setResultToToast(mContext.getString(R.string.sdk_registration_message) + djiError.getDescription());
                                 }
@@ -655,24 +666,31 @@ public class MainContent extends RelativeLayout {
         });
     }
 
-    private void showDBVersion(){
+    private void showDBVersion() {
         mHander.postDelayed(new Runnable() {
             @Override
             public void run() {
-                DJISDKManager.getInstance().getFlyZoneManager().getPreciseDatabaseVersion(new CommonCallbacks.CompletionCallbackWith<String>() {
-                    @Override
-                    public void onSuccess(String s) {
-                        ToastUtils.setResultToToast("db load success ! version : " + s);
-                    }
+                if (DJISDKManager.getInstance() != null &&
+                        DJISDKManager.getInstance().getFlyZoneManager() != null) {
 
-                    @Override
-                    public void onFailure(DJIError djiError) {
-                        ToastUtils.setResultToToast("db load failure ! get version error : " + djiError.getDescription());
+                    DJISDKManager.getInstance().getFlyZoneManager()
+                            .getPreciseDatabaseVersion(new CommonCallbacks.CompletionCallbackWith<String>() {
+                                @Override
+                                public void onSuccess(String s) {
+                                    ToastUtils.setResultToToast("DB load success! version: " + s);
+                                }
 
-                    }
-                });
+                                @Override
+                                public void onFailure(DJIError djiError) {
+                                    ToastUtils.setResultToToast("DB load failure! get version error: " + djiError.getDescription());
+                                }
+                            });
+
+                } else {
+                    ToastUtils.setResultToToast("FlyZoneManager is not ready yet");
+                }
             }
-        },3000);
+        }, 3000);
     }
 
     private void hideProcess(){
