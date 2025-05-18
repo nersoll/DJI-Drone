@@ -2,6 +2,7 @@ package com.dji.sdk.sample.demo.missionoperator;
 
 import android.content.Context;
 import android.graphics.PointF;
+import android.os.Bundle;
 import android.view.View;
 
 import androidx.annotation.NonNull;
@@ -103,6 +104,11 @@ public class WaypointV2MissionOperatorView extends MissionBaseView {
 
     public WaypointV2MissionOperatorView(Context context) {
         super(context);
+    }
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+
     }
 
     @Override

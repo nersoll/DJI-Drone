@@ -14,8 +14,12 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.CAMERA"/>
+
+
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-feature
         android:name="android.hardware.usb.host"
@@ -26,6 +30,8 @@
 
 
     <!-- SDK requirement permission end -->
+
+
 
     <application
         android:name=".internal.controller.DJISampleApplication"
@@ -49,7 +55,7 @@
         <!-- personal key -->
         <meta-data
             android:name="com.dji.sdk.API_KEY"
-            android:value="8c78ef7f7c6e2ba5c5122050"/>
+            android:value="a1f754b684b5a79c040b7ea0"/>
         <!-- Required for receiving accessory attachment events.
             This is necessary for product when connecting over USB. -->
 
@@ -58,7 +64,6 @@
 
         <activity
             android:name="com.dji.sdk.sample.internal.controller.MainActivity"
-            android:label="@string/sample_app_name"
             android:theme="@style/AppTheme.NoActionBar.FullScreen"
             android:launchMode="singleTop"
             android:configChanges="orientation|keyboardHidden|screenSize"

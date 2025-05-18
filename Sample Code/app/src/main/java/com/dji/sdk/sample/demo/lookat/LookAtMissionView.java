@@ -53,7 +53,7 @@ import dji.sdk.gimbal.mode.LookAtMode;
 import dji.sdk.products.Aircraft;
 import dji.sdk.sdkmanager.DJISDKManager;
 
-import static com.google.android.gms.internal.zzahn.runOnUiThread;
+//import static com.google.android.gms.internal.zzahn.runOnUiThread;
 
 public class LookAtMissionView extends LinearLayout implements View.OnClickListener, PresentableView {
 
@@ -335,6 +335,9 @@ public class LookAtMissionView extends LinearLayout implements View.OnClickListe
                 laserInfoTv.setText(buffer.toString());
             }
         });
+    }
+
+    private void runOnUiThread(Runnable runnable) {
     }
 
     private void lookAt() {

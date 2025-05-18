@@ -1,13 +1,18 @@
 package com.dji.sdk.sample.demo.missionoperator;
 
 
+import static com.google.android.gms.internal.zzahn.runOnUiThread;
+
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.util.Log;
+import android.view.TextureView;
 import android.view.View;
 
 import com.dji.sdk.sample.R;
 import com.dji.sdk.sample.demo.missionmanager.MissionBaseView;
 import com.dji.sdk.sample.internal.controller.DJISampleApplication;
+import com.dji.sdk.sample.internal.onnxrun.BoundingBoxOverlayView;
 import com.dji.sdk.sample.internal.utils.ToastUtils;
 
 import java.util.ArrayList;
@@ -36,6 +41,8 @@ import dji.common.model.LocationCoordinate2D;
 import dji.common.util.CommonCallbacks;
 
 import dji.sdk.base.BaseProduct;
+import dji.sdk.camera.VideoFeeder;
+import dji.sdk.codec.DJICodecManager;
 import dji.sdk.flightcontroller.FlightController;
 
 import dji.sdk.mission.MissionControl;
@@ -43,11 +50,21 @@ import dji.sdk.mission.waypoint.WaypointMissionOperator;
 import dji.sdk.mission.waypoint.WaypointMissionOperatorListener;
 import dji.sdk.products.Aircraft;
 
-import static dji.keysdk.FlightControllerKey.HOME_LOCATION_LATITUDE;
-import static dji.keysdk.FlightControllerKey.HOME_LOCATION_LONGITUDE;
+import com.dji.sdk.sample.internal.onnxrun.OnnxDetector;
+import com.dji.sdk.sample.internal.view.BaseCameraView;
 
+import android.graphics.*;
+import android.os.Bundle;
+
+import java.io.InputStream;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+import android.os.Handler;
+import android.os.Looper;
 public class WaypointMissionOperatorView extends MissionBaseView {
 
+    public static final String TAG = "WaypointMissionOperator";
     private static final double BASE_LATITUDE = 22;
     private static final double BASE_LONGITUDE = 113;
     private static final int REFRESH_FREQ = 10;
@@ -59,16 +76,32 @@ public class WaypointMissionOperatorView extends MissionBaseView {
     private static final double VERTICAL_DISTANCE = 30;
     private static final int WAYPOINT_COUNT = 4;
 
+
     private WaypointMissionOperator waypointMissionOperator = null;
     private FlightController flightController = null;
     private WaypointMission mission = null;
     private WaypointMissionOperatorListener listener;
     private float calculateTotalTime = 0.0f;
 
+    private TextureView videoTextureView;
+    private Handler frameCaptureHandler = new Handler(Looper.getMainLooper());
+    private Runnable frameCaptureRunnable;
+    private OnnxDetector detector;
+    private DJICodecManager codecManager;
+    private VideoFeeder.VideoDataListener videoDataListener;
+    private final ExecutorService inferenceExecutor = Executors.newSingleThreadExecutor();
+
 
     public WaypointMissionOperatorView(Context context) {
         super(context);
     }
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+
+    }
+
+
 
     @Override
     public void onClick(View view) {
@@ -101,13 +134,8 @@ public class WaypointMissionOperatorView extends MissionBaseView {
                 }
                 break;
             case R.id.btn_load:
-                List<LocationCoordinate2D> coords = new ArrayList<>();
-                coords.add(new LocationCoordinate2D(22.0, 113.0));
-                coords.add(new LocationCoordinate2D(22.0003, 113.0003));
-                coords.add(new LocationCoordinate2D(22.0006, 113.0001));
-                coords.add(new LocationCoordinate2D(22.0004, 113.0000));
 
-                mission = createWaypointMissionFromCoordinates(coords);
+
                 if (mission != null) {
                     DJIError djiError = waypointMissionOperator.loadMission(mission);
                     if (djiError == null) {
@@ -184,7 +212,29 @@ public class WaypointMissionOperatorView extends MissionBaseView {
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
+        BaseCameraView cameraView = findViewById(R.id.base_camera_view);
+        if (cameraView != null) {
+            cameraView.stopFrameCapture();
+        }
 
+        frameCaptureHandler.removeCallbacks(frameCaptureRunnable);
+
+        if (videoDataListener != null) {
+            VideoFeeder.getInstance().getPrimaryVideoFeed().removeVideoDataListener(videoDataListener);
+            videoDataListener = null;
+        }
+
+        if (codecManager != null) {
+            codecManager.cleanSurface();
+            codecManager = null;
+        }
+
+        inferenceExecutor.shutdownNow();
+        try {
+            detector = new OnnxDetector(getContext(), "model_n.onnx");
+        } catch (Exception e) {
+            Log.e(TAG, "Ошибка инициализации модели: ", e);
+        }
         BaseProduct product = DJISampleApplication.getProductInstance();
 
         if (product == null || !product.isConnected()) {
@@ -216,18 +266,61 @@ public class WaypointMissionOperatorView extends MissionBaseView {
                 });
             }
         }
-        waypointMissionOperator = MissionControl.getInstance().getWaypointMissionOperator();
+        if (cameraView != null) {
+            cameraView.setOnFrameAvailableListener(bitmap -> {
+                inferenceExecutor.execute(() -> {
+                    Log.i(TAG, "AI attempt to analyze image");
+                    try {
+                        if (detector != null) {
+                            List<float[]> boxes = detector.runModel(bitmap);
+                            List<RectF> overlayBoxes = new ArrayList<>();
+                            for (float[] box : boxes) {
+                                Log.i(TAG, String.format("Class: %d | Conf: %.2f | Center: [%.1f, %.1f] | Size: [%.1f, %.1f]",
+                                        (int) box[5], box[4], box[0], box[1], box[2], box[3]));
+                                float cx = box[0];  // центр x
+                                float cy = box[1];  // центр y
+                                float w = box[2];
+                                float h = box[3];
+
+                                float left = cx - w / 2;
+                                float top = cy - h / 2;
+                                float right = cx + w / 2;
+                                float bottom = cy + h / 2;
+
+                                overlayBoxes.add(new RectF(left, top, right, bottom));
+
+                            }
+                            BoundingBoxOverlayView overlay = findViewById(R.id.overlay_view);
+                            runOnUiThread(() -> overlay.updateBoxes(overlayBoxes));
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Ошибка инференса", e);
+                    } finally {
+                        bitmap.recycle();
+                    }
+                });
+            });
+
+            cameraView.startFrameCapture();
+        }
         setUpListener();
     }
 
+    private Bitmap loadImageFromAssets(String filename) throws Exception {
+        InputStream is = getContext().getAssets().open(filename);
+        return BitmapFactory.decodeStream(is);
+    }
+
+
     @Override
     protected void onDetachedFromWindow() {
-        tearDownListener();
-        if (flightController != null) {
-            flightController.getSimulator().stop(null);
-            flightController.setStateCallback(null);
+        BaseCameraView cameraView = findViewById(R.id.base_camera_view);
+        if (cameraView != null) {
+            cameraView.stopFrameCapture();
         }
+        inferenceExecutor.shutdownNow();
         super.onDetachedFromWindow();
+
     }
 
 
@@ -443,5 +536,89 @@ public class WaypointMissionOperatorView extends MissionBaseView {
     @Override
     public int getDescription() {
         return R.string.component_listview_waypoint_mission_operator;
+    }
+
+    private void initVideoFrameCapture() {
+        videoTextureView = findViewById(R.id.base_camera_view); // убедитесь, что этот ID есть в layout XML
+
+        if (videoTextureView.isAvailable()) {
+            startCapturingFrames();
+        } else {
+            videoTextureView.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
+                @Override
+                public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
+                    startCapturingFrames();
+                }
+                @Override public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height) {}
+                @Override public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) { return false; }
+                @Override public void onSurfaceTextureUpdated(SurfaceTexture surface) {}
+            });
+        }
+    }
+
+    private void startCapturingFrames() {
+        frameCaptureRunnable = new Runnable() {
+            @Override
+            public void run() {
+                Log.i(TAG, "Camera screenshot");
+                if (videoTextureView.isAvailable()) {
+                    Bitmap frame = videoTextureView.getBitmap(640, 640);
+                    if (frame != null) {
+                        Log.i(TAG, "Кадр получен: " + frame.getWidth() + "x" + frame.getHeight());
+                        inferenceExecutor.execute(() -> {
+                            try {
+                                List<float[]> boxes = detector.runModel(frame);
+                                for (float[] box : boxes) {
+                                    Log.i(TAG, String.format("Class: %d | Conf: %.2f | Center: [%.1f, %.1f] | Size: [%.1f, %.1f]",
+                                            (int) box[5], box[4], box[0], box[1], box[2], box[3]));
+                                }
+                            } catch (Exception e) {
+                                Log.e(TAG, "Ошибка инференса", e);
+                            } finally {
+                                frame.recycle();
+                            }
+                        });
+                    }
+                }
+                frameCaptureHandler.postDelayed(this, 2000);
+            }
+        };
+        frameCaptureHandler.post(frameCaptureRunnable);
+    }
+
+    private void initVideoFeed() {
+        videoTextureView = findViewById(R.id.base_camera_view);
+
+        if (videoTextureView.isAvailable()) {
+            initCodec(videoTextureView.getSurfaceTexture(), videoTextureView.getWidth(), videoTextureView.getHeight());
+        } else {
+            videoTextureView.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
+                @Override
+                public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
+                    initCodec(surface, width, height);
+                }
+                @Override public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height) {}
+                @Override public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
+                    if (codecManager != null) {
+                        codecManager.cleanSurface();
+                        codecManager = null;
+                    }
+                    return true;
+                }
+                @Override public void onSurfaceTextureUpdated(SurfaceTexture surface) {}
+            });
+        }
+
+        videoDataListener = (videoBuffer, size) -> {
+            if (codecManager != null) {
+                codecManager.sendDataToDecoder(videoBuffer, size);
+            }
+        };
+
+        VideoFeeder.getInstance().getPrimaryVideoFeed().addVideoDataListener(videoDataListener);
+    }
+
+    private void initCodec(SurfaceTexture surface, int width, int height) {
+        codecManager = new DJICodecManager(getContext(), surface, width, height);
     }
 }

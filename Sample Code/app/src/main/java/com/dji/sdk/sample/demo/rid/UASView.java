@@ -19,7 +19,7 @@ import dji.sdk.uas.AreaCode;
 import dji.sdk.uas.UASRemoteIDStatus;
 import dji.sdk.uas.UASRemoteIDStatusListener;
 
-import static com.google.android.gms.internal.zzahn.runOnUiThread;
+//import static com.google.android.gms.internal.zzahn.runOnUiThread;
 
 public class UASView extends LinearLayout implements View.OnClickListener, PresentableView {
 
@@ -29,7 +29,7 @@ public class UASView extends LinearLayout implements View.OnClickListener, Prese
     private final UASRemoteIDStatusListener uasRemoteIDStatusListener = new UASRemoteIDStatusListener() {
         @Override
         public void onUpdate(UASRemoteIDStatus uasRemoteIDStatus) {
-            runOnUiThread(()-> uasInfoTV.setText(uasRemoteIDStatus.toString()));
+            //runOnUiThread(()-> uasInfoTV.setText(uasRemoteIDStatus.toString()));
         }
     };
 

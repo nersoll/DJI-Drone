@@ -83,7 +83,8 @@ public class MainContent extends RelativeLayout {
             Manifest.permission.BLUETOOTH_ADMIN, // Bluetooth connected products
             Manifest.permission.READ_EXTERNAL_STORAGE,
             Manifest.permission.READ_PHONE_STATE, // Device UUID accessed upon registration
-            Manifest.permission.RECORD_AUDIO // Speaker accessory
+            Manifest.permission.RECORD_AUDIO, // Speaker accessory
+            Manifest.permission.CAMERA // Speaker accessory
     };
     private static final int REQUEST_PERMISSION_CODE = 12345;
     private AtomicBoolean isRegistrationInProgress = new AtomicBoolean(false);
@@ -106,7 +107,7 @@ public class MainContent extends RelativeLayout {
     private Button getmBtnRegisterAppForLDM;
     private Button mBtnOpen;
     private Button mBtnBluetooth;
-//            new ViewWrapper(new DemoListView(getContext()), R.string.activity_component_list);
+    //            new ViewWrapper(new DemoListView(getContext()), R.string.activity_component_list);
     private ViewWrapper componentList =
             new ViewWrapper(new WaypointMissionOperatorView(getContext()), R.string.activity_component_list);
     private ViewWrapper bluetoothView;
@@ -354,10 +355,10 @@ public class MainContent extends RelativeLayout {
         Log.d(TAG, "mProduct: " + (mProduct == null ? "null" : "unnull"));
         if (null != mProduct ) {
             if (mProduct.isConnected()) {
-                    if (componentList != null) {
-                        // Автоматическое открытие следующего слоя
-                        DJISampleApplication.getEventBus().post(componentList);
-                    }
+                if (componentList != null) {
+                    // Автоматическое открытие следующего слоя
+                    DJISampleApplication.getEventBus().post(componentList);
+                }
 //                mBtnOpen.setEnabled(true);
                 String str = mProduct instanceof Aircraft ? "DJIAircraft" : "DJIHandHeld";
                 mTextConnectionStatus.setText("Status: " + str + " connected");

@@ -2,6 +2,7 @@ package com.dji.sdk.sample.demo.missionmanager;
 
 import android.app.Service;
 import android.content.Context;
+import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.Button;
@@ -49,6 +50,8 @@ public abstract class MissionBaseView extends RelativeLayout implements View.OnC
         super(context);
         initUI(context);
     }
+
+    protected abstract void onCreate(Bundle savedInstanceState);
 
     @Override
     protected void onAttachedToWindow() {

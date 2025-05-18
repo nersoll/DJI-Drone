@@ -10,6 +10,11 @@
         android:clickable="false"
         android:focusable="false"/>
 
+    <com.dji.sdk.sample.internal.onnxrun.BoundingBoxOverlayView
+        android:id="@+id/overlay_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
     <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"

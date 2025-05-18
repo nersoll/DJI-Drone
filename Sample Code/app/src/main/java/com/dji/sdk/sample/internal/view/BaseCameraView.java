@@ -2,13 +2,17 @@ package com.dji.sdk.sample.internal.view;
 
 import android.app.Service;
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.graphics.SurfaceTexture;
+import android.os.Handler;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.TextureView;
 import android.widget.FrameLayout;
 import com.dji.sdk.sample.R;
+import com.dji.sdk.sample.internal.onnxrun.OnnxDetector;
+
 import dji.sdk.camera.VideoFeeder;
 import dji.sdk.codec.DJICodecManager;
 
@@ -16,6 +20,12 @@ import dji.sdk.codec.DJICodecManager;
  * This class is designed for showing the camera video feed from the camera.
  */
 public class BaseCameraView extends FrameLayout implements TextureView.SurfaceTextureListener {
+
+
+    private Handler frameHandler = new Handler();
+    private Runnable frameRunnable;
+    private OnnxDetector detector;
+    private boolean isFrameCaptureEnabled = false;
 
     private VideoFeeder.VideoDataListener videoDataListener = null;
     private DJICodecManager codecManager = null;
@@ -52,6 +62,42 @@ public class BaseCameraView extends FrameLayout implements TextureView.SurfaceTe
 
         initSDKCallback();
     }
+
+    public interface OnFrameAvailableListener {
+        void onFrameAvailable(Bitmap bitmap);
+    }
+
+    private OnFrameAvailableListener frameListener;
+
+    public void setOnFrameAvailableListener(OnFrameAvailableListener listener) {
+        this.frameListener = listener;
+    }
+
+    public void stopFrameCapture() {
+        isFrameCaptureEnabled = false;
+        frameHandler.removeCallbacks(frameRunnable);
+    }
+
+    public void startFrameCapture() {
+        isFrameCaptureEnabled = true;
+
+        frameRunnable = new Runnable() {
+            @Override
+            public void run() {
+                TextureView mVideoSurface = findViewById(R.id.texture_video_previewer_surface);
+                if (mVideoSurface != null && mVideoSurface.isAvailable()) {
+                    Bitmap bitmap = mVideoSurface.getBitmap();
+                    if (bitmap != null && frameListener != null) {
+                        frameListener.onFrameAvailable(bitmap);
+                    }
+                }
+                frameHandler.postDelayed(this, 2000);
+            }
+        };
+
+        frameHandler.post(frameRunnable);
+    }
+
 
     private void initSDKCallback() {
         try {

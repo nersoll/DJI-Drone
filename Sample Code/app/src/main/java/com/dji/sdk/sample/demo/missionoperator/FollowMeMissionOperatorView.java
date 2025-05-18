@@ -1,6 +1,7 @@
 package com.dji.sdk.sample.demo.missionoperator;
 
 import android.content.Context;
+import android.os.Bundle;
 import android.view.View;
 
 import com.dji.sdk.sample.R;
@@ -47,6 +48,11 @@ public class FollowMeMissionOperatorView extends MissionBaseView {
 
     public FollowMeMissionOperatorView(Context context) {
         super(context);
+    }
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+
     }
 
     @Override
